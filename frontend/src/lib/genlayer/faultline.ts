@@ -1,6 +1,5 @@
 "use client";
 
-import { isSuccessful } from "genlayer-js";
 import { CONTRACT_ADDRESS, latestFinalRead, writeClient } from "./client";
 import { estimateWriteFees } from "./fees";
 import { asPlain } from "@/lib/format";
@@ -34,6 +33,25 @@ function txStatus(transaction: any) {
 
 function executionStatus(transaction: any) {
   return transaction?.txExecutionResultName ?? String(transaction?.txExecutionResult ?? "unknown");
+}
+
+// genlayer-js 1.1.8 on npm does not yet export the upstream isSuccessful helper.
+// Match its published-upstream semantics locally: accepted/finalized AND FINISHED_WITH_RETURN.
+function executionSucceeded(transaction: any) {
+  const status = transaction?.statusName ?? transaction?.status;
+  const execution = transaction?.txExecutionResultName ?? transaction?.txExecutionResult;
+  const accepted =
+    status === TransactionStatus.ACCEPTED ||
+    status === TransactionStatus.FINALIZED ||
+    status === 5 ||
+    status === 7 ||
+    status === "5" ||
+    status === "7";
+  const returned =
+    execution === "FINISHED_WITH_RETURN" ||
+    execution === 1 ||
+    execution === "1";
+  return accepted && returned;
 }
 
 async function executeWrite(
@@ -90,7 +108,7 @@ async function executeWrite(
             fullTransaction: true,
           });
 
-    if (!isSuccessful(finalReceipt)) {
+    if (!executionSucceeded(finalReceipt)) {
       throw new Error(
         `Transaction reached ${txStatus(finalReceipt)} but execution was not successful (${executionStatus(finalReceipt)}).`
       );
