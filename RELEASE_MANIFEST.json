@@ -1,0 +1,24 @@
+{
+  "product": "Faultline",
+  "network": "GenLayer Studionet",
+  "chain_id": 61999,
+  "rpc": "https://studio.genlayer.com/api",
+  "explorer": "https://explorer-studio.genlayer.com",
+  "contract_count": 1,
+  "contract": "contracts/faultline.py",
+  "contract_sha256": "e733f98893e03c2f52547139c291da023a1db268ea16605d03f17db036cdfad8",
+  "contract_lines": 1474,
+  "file_count_before_manifest": 59,
+  "frontend_routes": [
+    "/",
+    "/warranties",
+    "/warranties/[id]",
+    "/incidents",
+    "/incidents/[id]",
+    "/open",
+    "/account",
+    "/protocol"
+  ],
+  "wallet": "injected EIP-1193 window.ethereum",
+  "verification_status": "See VERIFICATION_STATUS.md and docs/REVIEW_EVIDENCE.md"
+}
