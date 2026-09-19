@@ -50,7 +50,6 @@ function acceptedStatus(transaction: any) {
 // genlayer-js 1.1.8 on npm does not yet export the upstream isSuccessful helper.
 // Match its published-upstream semantics locally: accepted/finalized AND FINISHED_WITH_RETURN.
 function executionSucceeded(transaction: any) {
-  const status = transaction?.statusName ?? transaction?.status;
   const execution = transaction?.txExecutionResultName ?? transaction?.txExecutionResult;
   const accepted = acceptedStatus(transaction);
   const returned =
