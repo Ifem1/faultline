@@ -49,3 +49,33 @@ def _inject_message_to_fd0(vm):
 
 
 loader._inject_message_to_fd0 = _inject_message_to_fd0
+
+
+def _allocate_contract_compat(contract_cls, vm, *args, **kwargs):
+    """Allocate storage-backed contracts for py-genlayer's current module layout."""
+    try:
+        from genlayer.py.storage import ROOT_SLOT_ID
+        from genlayer.py.storage._internal.generate import (
+            ORIGINAL_INIT_ATTR,
+            _BuilderCtx,
+            _storage_build,
+        )
+    except ImportError:
+        return loader._faultline_original_allocate_contract(contract_cls, vm, *args, **kwargs)
+
+    td = _storage_build(_BuilderCtx.empty(), contract_cls)
+    slot = vm._storage.get_store_slot(ROOT_SLOT_ID)
+    instance = td.get(slot, 0)
+
+    init_cls = getattr(td, "cls", None)
+    init = getattr(init_cls, "__init__", None) if init_cls is not None else getattr(contract_cls, "__init__", None)
+    if init is not None:
+        if hasattr(init, ORIGINAL_INIT_ATTR):
+            init = getattr(init, ORIGINAL_INIT_ATTR)
+        init(instance, *args, **kwargs)
+    return instance
+
+
+if not hasattr(loader, "_faultline_original_allocate_contract"):
+    loader._faultline_original_allocate_contract = loader._allocate_contract
+loader._allocate_contract = _allocate_contract_compat
