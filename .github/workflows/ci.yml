@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: contract
     env:
-      FAULTLINE_CONTRACT: 0x7655d42C17a8aE1E126af4982A901Bd121cDf221
+      FAULTLINE_CONTRACT: "0x7655d42C17a8aE1E126af4982A901Bd121cDf221"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
