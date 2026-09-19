@@ -12,10 +12,12 @@ import pytest
 from genlayer_py import create_account, create_client
 from genlayer_py.chains import studionet
 from genlayer_py.types import TransactionHashVariant
+from genlayer_py.transactions.actions import is_successful
 
 
 CANONICAL_CONTRACT = "0x7655d42C17a8aE1E126af4982A901Bd121cDf221"
 CONTRACT = os.getenv("FAULTLINE_CONTRACT", CANONICAL_CONTRACT)
+DEPLOYMENT_TX = "0x4592b0ff972d4f2378ce033d85ff8a46dab2950ae85129a9c259e02fbb15d88f"
 RPC = "https://studio.genlayer.com/api"
 
 
@@ -34,6 +36,14 @@ def read(client, function_name, args=None):
         args=args or [],
         transaction_hash_variant=TransactionHashVariant.LATEST_FINAL,
     )
+
+
+@pytest.mark.integration
+def test_canonical_deployment_transaction_finalized_successfully(live):
+    client, _ = live
+    transaction = client.get_transaction(DEPLOYMENT_TX)
+    assert transaction["status_name"].value == "FINALIZED"
+    assert is_successful(transaction) is True
 
 
 @pytest.mark.integration
