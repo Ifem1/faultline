@@ -26,7 +26,8 @@ This is the authoritative record of the final Studionet deployment, current engi
 
 ## Current CI and test summary
 
-- Application/live-evidence baseline commit: [`3adf4a66a96fe7d410c425433462433e17fb853b`](https://github.com/Ifem1/faultline/commit/3adf4a66a96fe7d410c425433462433e17fb853b). The documentation-only release cleanup commit and its CI run are recorded in repository history; this section should be refreshed with that run URL after it completes.
+- Application/live-evidence baseline commit: [`3adf4a66a96fe7d410c425433462433e17fb853b`](https://github.com/Ifem1/faultline/commit/3adf4a66a96fe7d410c425433e17fb853b).
+- Documentation release-cleanup commit: [`882e75edb815812dbdd666e46426a54612149c0e`](https://github.com/Ifem1/faultline/commit/882e75edb815812dbdd666e46426a54612149c0e); its complete green CI run: [35462574008](https://github.com/Ifem1/faultline/actions/runs/35462574008).
 - GenVM lint: passed; 27 methods (12 views, 15 writes).
 - Direct Mode: **20/20 passed**.
 - Studionet integration: **4/4 passed**.
