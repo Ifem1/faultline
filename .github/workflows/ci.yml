@@ -53,3 +53,15 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
+
+  hosted_frontend:
+    runs-on: ubuntu-latest
+    needs: frontend
+    env:
+      FAULTLINE_FRONTEND_URL: "https://faultline-eight-lemon.vercel.app/"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python scripts/check_hosted_frontend.py
