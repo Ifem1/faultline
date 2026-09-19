@@ -159,14 +159,14 @@ Record the finalized deployment in `docs/REVIEW_EVIDENCE.md` and wire the exact 
 - `docs/SECURITY.md` — threat model and trust boundaries
 - `docs/LIVE_DEMO.md` — two-wallet reviewer demo
 - `docs/REVIEW_EVIDENCE.md` — deployment and test evidence checklist
-- `AGENT_HANDOFF.md` — exact completion instructions for the finishing agent
+- `AGENT_HANDOFF.md` — release handoff and current verified state
 
-## Current verification status
+## Release status
 
-This archive was authored with Studionet `61999` and the stable GenLayerJS/contract patterns as the target. In the creation environment:
+- Canonical deployment: [Studionet contract `0x7655d42C17a8aE1E126af4982A901Bd121cDf221`](https://explorer-studio.genlayer.com/address/0x7655d42C17a8aE1E126af4982A901Bd121cDf221) on chain `61999`.
+- Hosted frontend: [faultline-eight-lemon.vercel.app](https://faultline-eight-lemon.vercel.app/).
+- CI is green. GenVM lint, release/network hygiene, frontend typecheck and production build pass; Direct Mode is **20/20**, Studionet integration is **4/4**.
+- The final deployment has real funded release, warranty, coverage, incident, commit/reveal and source-examination activity. Live results include `INVALID_SOURCE`, `SOURCE_UNAVAILABLE`, `VERIFIED`, pending source callbacks, reveal expiry and deadline enforcement. Accounting remained balanced.
+- No live `BREACHED` settlement or coverage payout was produced. The available public disclosure dates predate the frozen Cycle B warranty start, and only one evidence family reached `VERIFIED`; manufacturing a breach would violate the warranty terms. The positive reserve/claim path is covered by Direct Mode tests.
 
-- Python syntax compilation passes for the contract and tests;
-- TypeScript/TSX syntax is checked separately without installing application dependencies;
-- the project is scanned for forbidden alternate GenLayer network configuration.
-
-The creation environment does **not** contain `genvm-linter`, `genlayer-test`, the GenLayer CLI, or installed frontend dependencies, so real lint, Direct Mode execution, Next.js production build, deployment and live network evidence must be completed by the handoff agent. Do not claim those gates passed until they actually do.
+See [`VERIFICATION_STATUS.md`](VERIFICATION_STATUS.md) for the concise gate summary and [`docs/REVIEW_EVIDENCE.md`](docs/REVIEW_EVIDENCE.md) for deployment, transaction hashes, observed states, limitations and source-date references.

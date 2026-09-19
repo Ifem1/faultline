@@ -1,124 +1,25 @@
-# Live demo script
+# Live reviewer guide
 
-Use at least two wallets on **Studionet 61999**.
+Faultline is deployed at [https://faultline-eight-lemon.vercel.app/](https://faultline-eight-lemon.vercel.app/) and uses the canonical contract [`0x7655d42C17a8aE1E126af4982A901Bd121cDf221`](https://explorer-studio.genlayer.com/address/0x7655d42C17a8aE1E126af4982A901Bd121cDf221) on GenLayer Studionet (chain `61999`). The documented live cycles are historical and already recorded; this guide does not ask reviewers to create another warranty or imply a live breach occurred.
 
-## Demo objective
+## Reviewer path
 
-Show that a frozen software-release warranty controls real test GEN and that only a finalized GenLayer semantic verdict can turn the publisher bond into coverage payouts.
+1. Open the hosted app with an injected EIP-1193 wallet configured for Studionet. The frontend uses `window.ethereum` only.
+2. Browse `/warranties`, `/incidents` and their detail routes to inspect finalized canonical contract state. `/protocol` explains the evidence and verdict semantics.
+3. Compare the release, funded warranty, coverage, incident and evidence records against the transaction hashes and final reads in [`REVIEW_EVIDENCE.md`](REVIEW_EVIDENCE.md).
+4. Inspect deployment, release and lifecycle transactions through the linked Studionet explorer entries.
+5. Treat current source callbacks marked pending as pending. Do not infer that an attempted evidence submission is a verified source or adjudication.
 
-## Wallet roles
+## Live evidence already recorded
 
-- Wallet A — publisher
-- Wallet B — coverage holder / evidence contributor
-- Optional Wallet C — second evidence contributor
+Two evidence cycles were attempted against the final contract. They demonstrated funded warranty and coverage activity, incident creation, commit/reveal, live `INVALID_SOURCE`, `SOURCE_UNAVAILABLE` and `VERIFIED` examination outcomes, unrevealed-bond resolution, deadline rejection, incident and warranty expiry, publisher credit withdrawal, and balanced accounting. Full transaction-by-transaction records are in [`REVIEW_EVIDENCE.md`](REVIEW_EVIDENCE.md).
 
-## 1. Register release
+Cycle B did not reach adjudication: the contract requires two independent verified source families and only one reached `VERIFIED`. Its incident expired through the liveness fallback, leaving status `EXPIRED`, `last_verdict = INCONCLUSIVE`, and zero adjudication rounds. This was not an adjudicated `INCONCLUSIVE` verdict.
 
-Wallet A registers a clearly labelled demo release such as:
+## Expected positive settlement path
 
-```text
-ecosystem: demo
-package: faultline-demo-parser
-version: 3.7.4
-release digest: sha256 of the demo release manifest
-metadata URL: public demo release page
-```
+The contract’s positive settlement behavior is covered by Direct Mode tests, not by a live final-contract payout transaction. When an adjudication truthfully returns `BREACHED`, deterministic settlement reserves the covered amount from the warranty bond; each eligible coverage holder claims once; claimable credit is withdrawn to its credited recipient. See the test and protocol descriptions in the repository. Do not describe this expected/tested path as a live demonstration.
 
-Record the transaction hash and resulting `fl-rel-*` ID.
+## What happened in the real Studionet cycles
 
-## 2. Open warranty
-
-Wallet A opens a warranty with a visible native GEN bond.
-
-Suggested terms:
-
-```text
-severity: CVSS >= 9.0 or explicitly CRITICAL
-class: remote code execution
-exclusions: local-admin-only, development-only dependency, unsupported fork
-minimum sources: 2
-minimum source families: 2
-```
-
-Coverage close should be soon enough for the demo but still satisfy contract minimums.
-
-## 3. Buy coverage
-
-Wallet B buys a smaller coverage notional before the coverage window closes. Confirm:
-
-- publisher receives premium as claimable credit;
-- coverage is visible in finalized state;
-- coverage amount cannot exceed remaining bond capacity.
-
-## 4. Open incident
-
-After coverage closes, open an incident against the warranty.
-
-## 5. Negative evidence path
-
-Submit a valid HTTPS source that is unrelated to the exact package. Expected result:
-
-```text
-INVALID_SOURCE
-```
-
-The incident verified-source count must not increase.
-
-## 6. Unavailable-source path
-
-Submit a URL that the runtime cannot fetch or a controlled endpoint returning non-200. Expected result:
-
-```text
-SOURCE_UNAVAILABLE
-```
-
-This is a retryable non-decision and must not create a breach or not-affected verdict.
-
-## 7. Verified evidence
-
-Submit two stable public demo advisory pages from two different source-family classes. Each should clearly establish the demo package, exact affected release range, severity and vulnerability class.
-
-Confirm each source examination result is visible in the UI.
-
-## 8. Adjudicate
-
-Run the warranty adjudication. For the positive demo packet, the expected typed result is:
-
-```text
-BREACHED
-```
-
-Confirm:
-
-- incident state becomes `BREACHED`;
-- warranty state becomes `BREACHED`;
-- warranty escrow decreases;
-- payout reserve equals issued coverage;
-- unused publisher bond becomes credit;
-- accounting invariant remains true.
-
-## 9. Claim payout
-
-Wallet B calls the coverage claim, then withdraws credit.
-
-Record the transaction hashes and explorer evidence.
-
-## 10. Separate not-affected demonstration
-
-On a second warranty, use two sources that consistently establish the disclosed issue affects a different version range. Expected result:
-
-```text
-NOT_AFFECTED
-```
-
-No warranty bond should move.
-
-## 11. Inconclusive demonstration
-
-On a third incident or test fixture, use materially conflicting verified evidence. Expected result:
-
-```text
-INCONCLUSIVE
-```
-
-The incident remains open and no warranty money moves.
+For Cycle B, the GHSA publication date was September 18, 2026 and the NVD publication timestamp was September 19 at 00:16 UTC; the warranty began around September 19 at 15:22 UTC. Those disclosures predate the frozen coverage period. The one verified source also had structured `publication_in_window = false`. The protocol therefore had no truthful basis for a live breach. No dates or validation rules were altered, no payout reserve was created, and no coverage claim was made. See the source links and known free-text basis discrepancy in [`REVIEW_EVIDENCE.md`](REVIEW_EVIDENCE.md).

@@ -49,3 +49,4 @@ The frontend uses `window.ethereum` as an EIP-1193 provider and binds writes to 
 - GenVM web fetching may follow redirects without exposing a complete redirect-chain proof to contract logic; reviewers should prefer stable canonical advisory URLs.
 - Source-family diversity reduces simple duplication but does not prove institutional independence.
 - The protocol evaluates disclosed public evidence; it does not discover zero-day vulnerabilities.
+- A live Cycle B source result had a correct structured `publication_in_window = false` field but an incorrect free-text explanation citing August warranty dates. No adjudication ran and the text discrepancy moved no funds. Validators reproduce substantive structured fields; downstream judging and UI should explicitly prioritize those fields over explanatory prose when they conflict. This is a semantic-output quality consideration, not an observed settlement vulnerability. See [`REVIEW_EVIDENCE.md`](REVIEW_EVIDENCE.md).
