@@ -27,7 +27,7 @@ export default function AccountPage() {
   async function withdraw() {
     if (!wallet.address) return wallet.connect();
     try { await Faultline.write(wallet.address, "withdraw_credit", [wallet.address], 0n, setTx); await refresh(); }
-    catch (e: any) { setTx({ stage: "error", message: e?.message || "Withdrawal failed" }); }
+    catch (e: any) { setTx({ stage: "error", hash: e?.hash, message: e?.message || "Withdrawal failed" }); setError(e?.message || "Withdrawal failed"); }
   }
 
   return (

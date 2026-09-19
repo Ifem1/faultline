@@ -41,7 +41,7 @@ export default function WarrantyDetail() {
     try {
       await Faultline.write(wallet.address, name, args, value, setTx);
       await refresh();
-    } catch (e: any) { setTx({ stage: "error", message: e?.message || "Transaction failed" }); setError(e?.message || "Transaction failed"); }
+    } catch (e: any) { setTx({ stage: "error", hash: e?.hash, message: e?.message || "Transaction failed" }); setError(e?.message || "Transaction failed"); }
   }
 
   async function buy(event: FormEvent<HTMLFormElement>) {

@@ -29,7 +29,7 @@ export default function OpenPage() {
     if (!wallet.correctNetwork) { await wallet.switchNetwork(); return false; }
     setError("");
     try { await Faultline.write(wallet.address, name, args, value, setTx); await refresh(); return true; }
-    catch (e: any) { setTx({ stage: "error", message: e?.message || "Transaction failed" }); setError(e?.message || "Transaction failed"); return false; }
+    catch (e: any) { setTx({ stage: "error", hash: e?.hash, message: e?.message || "Transaction failed" }); setError(e?.message || "Transaction failed"); return false; }
   }
 
   async function register(event: FormEvent<HTMLFormElement>) {

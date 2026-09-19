@@ -6,7 +6,14 @@ export type WalletState = {
   loading: boolean;
 };
 
-export type TxStage = "idle" | "signing" | "submitted" | "decided" | "finalized" | "error";
+export type TxStage =
+  | "idle"
+  | "signing"
+  | "submitted"
+  | "decided"
+  | "finalizing"
+  | "successful"
+  | "error";
 
 export type TxState = {
   stage: TxStage;

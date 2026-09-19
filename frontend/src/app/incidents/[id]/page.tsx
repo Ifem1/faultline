@@ -81,7 +81,7 @@ export default function IncidentDetail() {
       await refresh();
       return true;
     } catch (e: any) {
-      setTx({ stage: "error", message: e?.message || "Transaction failed" });
+      setTx({ stage: "error", hash: e?.hash, message: e?.message || "Transaction failed" });
       setError(e?.message || "Transaction failed");
       return false;
     }

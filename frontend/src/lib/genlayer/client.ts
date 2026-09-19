@@ -64,6 +64,6 @@ export function contractExplorer() {
   return CONTRACT_ADDRESS ? `${EXPLORER_URL}/address/${CONTRACT_ADDRESS}` : EXPLORER_URL;
 }
 
-export function transactionExplorer() {
-  return `${EXPLORER_URL}/txs`;
+export function transactionExplorer(hash?: string) {
+  return hash ? `${EXPLORER_URL}/tx/${hash}` : `${EXPLORER_URL}/txs`;
 }

@@ -3,7 +3,7 @@
 import type { TxState } from "@/lib/types";
 import { transactionExplorer } from "@/lib/genlayer/client";
 
-const stages = ["signing", "submitted", "decided", "finalized"] as const;
+const stages = ["signing", "submitted", "decided", "finalizing", "successful"] as const;
 
 export function TxRail({ state }: { state: TxState }) {
   if (state.stage === "idle") return null;
@@ -16,7 +16,7 @@ export function TxRail({ state }: { state: TxState }) {
           {stages.map((stage, index) => <span key={stage} className={index <= at ? "done" : ""}>{stage}</span>)}
         </div>
       ) : null}
-      {state.hash ? <a href={transactionExplorer()} target="_blank" rel="noreferrer">{state.hash.slice(0, 12)}…{state.hash.slice(-8)} · explorer ↗</a> : null}
+      {state.hash ? <a href={transactionExplorer(state.hash)} target="_blank" rel="noreferrer">{state.hash.slice(0, 12)}…{state.hash.slice(-8)} · explorer ↗</a> : null}
     </div>
   );
 }

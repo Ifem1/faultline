@@ -1,5 +1,6 @@
 "use client";
 
+import { isSuccessful } from "genlayer-js";
 import { CONTRACT_ADDRESS, latestFinalRead, writeClient } from "./client";
 import { estimateWriteFees } from "./fees";
 import { asPlain } from "@/lib/format";
@@ -15,6 +16,26 @@ export const SOURCE_FAMILIES = [
   "SECURITY_RESEARCH"
 ] as const;
 
+function usefulError(error: unknown) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string" && error) return error;
+  try {
+    const encoded = JSON.stringify(error);
+    if (encoded && encoded !== "{}") return encoded;
+  } catch {
+    // Fall through to a stable user-facing message.
+  }
+  return "GenLayer transaction failed.";
+}
+
+function txStatus(transaction: any) {
+  return transaction?.statusName ?? String(transaction?.status ?? "unknown");
+}
+
+function executionStatus(transaction: any) {
+  return transaction?.txExecutionResultName ?? String(transaction?.txExecutionResult ?? "unknown");
+}
+
 async function executeWrite(
   account: `0x${string}`,
   functionName: string,
@@ -23,37 +44,71 @@ async function executeWrite(
   onState?: (state: TxState) => void
 ) {
   if (!CONTRACT_ADDRESS) throw new Error("Faultline contract address is not configured.");
-  const client: any = await writeClient(account);
-  const write = { address: CONTRACT_ADDRESS as `0x${string}`, functionName, args, value };
-  onState?.({ stage: "signing", message: "Confirm in your wallet" });
-  const fees = await estimateWriteFees(client, write as any);
-  const hash = await client.writeContract({ ...write, ...(fees ? { fees } : {}) } as any);
-  onState?.({ stage: "submitted", hash, message: "Submitted to GenLayer consensus" });
 
-  if (typeof client.waitForDecision === "function") {
-    await client.waitForDecision({ hash });
-  } else {
-    await client.waitForTransactionReceipt({
+  let hash: `0x${string}` | undefined;
+  try {
+    const client: any = await writeClient(account);
+    const write = { address: CONTRACT_ADDRESS as `0x${string}`, functionName, args, value };
+
+    onState?.({ stage: "signing", message: "Confirm this transaction in your injected wallet." });
+    const fees = await estimateWriteFees(client, write as any);
+    hash = await client.writeContract({ ...write, ...(fees ? { fees } : {}) } as any);
+    onState?.({ stage: "submitted", hash, message: "Submitted to GenLayer consensus." });
+
+    const decision = await client.waitForTransactionReceipt({
       hash,
-      status: TransactionStatus.ACCEPTED,
+      waitUntil: "decided",
       retries: 120,
       interval: 4000,
+      fullTransaction: true,
     });
-  }
-  onState?.({ stage: "decided", hash, message: "Decision materialized; waiting for finality" });
 
-  if (typeof client.waitForFinalization === "function") {
-    await client.waitForFinalization({ hash });
-  } else {
-    await client.waitForTransactionReceipt({
+    const decisionName = decision?.statusName;
+    if (
+      decisionName &&
+      decisionName !== TransactionStatus.ACCEPTED &&
+      decisionName !== TransactionStatus.FINALIZED
+    ) {
+      throw new Error(`Consensus ended in ${decisionName}; the operation was not accepted.`);
+    }
+
+    onState?.({
+      stage: "decided",
       hash,
-      status: TransactionStatus.FINALIZED,
-      retries: 180,
-      interval: 4000,
+      message: `Consensus decision reached (${txStatus(decision)}).`,
     });
+    onState?.({ stage: "finalizing", hash, message: "Accepted decision reached; waiting for finality." });
+
+    const finalReceipt =
+      decisionName === TransactionStatus.FINALIZED
+        ? decision
+        : await client.waitForTransactionReceipt({
+            hash,
+            waitUntil: "finalized",
+            retries: 180,
+            interval: 4000,
+            fullTransaction: true,
+          });
+
+    if (!isSuccessful(finalReceipt)) {
+      throw new Error(
+        `Transaction reached ${txStatus(finalReceipt)} but execution was not successful (${executionStatus(finalReceipt)}).`
+      );
+    }
+
+    onState?.({
+      stage: "successful",
+      hash,
+      message: "Finalized with successful GenVM execution.",
+    });
+    return hash;
+  } catch (error) {
+    const message = usefulError(error);
+    onState?.({ stage: "error", ...(hash ? { hash } : {}), message });
+    const wrapped = new Error(message) as Error & { hash?: `0x${string}` };
+    if (hash) wrapped.hash = hash;
+    throw wrapped;
   }
-  onState?.({ stage: "finalized", hash, message: "Finalized" });
-  return hash as `0x${string}`;
 }
 
 export const Faultline = {
