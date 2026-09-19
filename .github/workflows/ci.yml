@@ -19,7 +19,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$HOME/.cache/gltest-direct"
-          bundle="$(find "$HOME/.cache/genvm-linter" -maxdepth 1 -type f -name 'genvm-universal-genlayerlabs-genvm-manager-*.tar.xz' -print | sort -V | tail -n 1)"
+          bundle="$(find "$HOME/.cache/genvm-linter" -maxdepth 2 -type f -name 'genvm-universal-*.tar.xz' -print | sort -V | tail -n 1)"
           test -n "$bundle"
           cp "$bundle" "$HOME/.cache/gltest-direct/genvm-universal-v0.3.0-rc7.tar.xz"
       - run: pytest tests/direct/ -v
