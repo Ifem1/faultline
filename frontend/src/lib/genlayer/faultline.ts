@@ -35,18 +35,24 @@ function executionStatus(transaction: any) {
   return transaction?.txExecutionResultName ?? String(transaction?.txExecutionResult ?? "unknown");
 }
 
-// genlayer-js 1.1.8 on npm does not yet export the upstream isSuccessful helper.
-// Match its published-upstream semantics locally: accepted/finalized AND FINISHED_WITH_RETURN.
-function executionSucceeded(transaction: any) {
+function acceptedStatus(transaction: any) {
   const status = transaction?.statusName ?? transaction?.status;
-  const execution = transaction?.txExecutionResultName ?? transaction?.txExecutionResult;
-  const accepted =
+  return (
     status === TransactionStatus.ACCEPTED ||
     status === TransactionStatus.FINALIZED ||
     status === 5 ||
     status === 7 ||
     status === "5" ||
-    status === "7";
+    status === "7"
+  );
+}
+
+// genlayer-js 1.1.8 on npm does not yet export the upstream isSuccessful helper.
+// Match its published-upstream semantics locally: accepted/finalized AND FINISHED_WITH_RETURN.
+function executionSucceeded(transaction: any) {
+  const status = transaction?.statusName ?? transaction?.status;
+  const execution = transaction?.txExecutionResultName ?? transaction?.txExecutionResult;
+  const accepted = acceptedStatus(transaction);
   const returned =
     execution === "FINISHED_WITH_RETURN" ||
     execution === 1 ||
@@ -81,13 +87,9 @@ async function executeWrite(
       fullTransaction: true,
     });
 
-    const decisionName = decision?.statusName;
-    if (
-      decisionName &&
-      decisionName !== TransactionStatus.ACCEPTED &&
-      decisionName !== TransactionStatus.FINALIZED
-    ) {
-      throw new Error(`Consensus ended in ${decisionName}; the operation was not accepted.`);
+    const decisionName = decision?.statusName ?? decision?.status;
+    if (!acceptedStatus(decision)) {
+      throw new Error(`Consensus ended in ${decisionName ?? "unknown"}; the operation was not accepted.`);
     }
 
     onState?.({
