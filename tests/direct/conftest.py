@@ -75,3 +75,59 @@ def _allocate_contract_compat(contract_cls, vm, *args, **kwargs):
 if not hasattr(loader, "_faultline_original_allocate_contract"):
     loader._faultline_original_allocate_contract = loader._allocate_contract
 loader._allocate_contract = _allocate_contract_compat
+
+
+# gltest 0.30 targets the v0.3 `genlayer.message` layout, while the pinned
+# Faultline runner exposes message state through `genlayer.gl`. Mirror VM
+# cheatcode updates into that loaded message object so vm.sender/value/warp
+# remain faithful to real GenVM call context.
+from gltest.direct.vm import VMContext
+
+if not hasattr(VMContext, "_faultline_original_refresh"):
+    VMContext._faultline_original_refresh = VMContext._refresh_gl_message
+
+
+def _refresh_faultline_message(self):
+    VMContext._faultline_original_refresh(self)
+    try:
+        from genlayer import gl
+        from genlayer.py.types import Address, u256
+    except ImportError:
+        return
+
+    def address(value):
+        if value is None or isinstance(value, Address):
+            return value
+        if isinstance(value, bytes):
+            return Address(value)
+        if hasattr(value, "as_bytes"):
+            return Address(value.as_bytes)
+        return value
+
+    sender = address(self.sender)
+    origin = address(self.origin)
+    message = getattr(gl, "message", None)
+    updates = {
+        "sender_address": sender,
+        "origin_address": origin,
+        "value": u256(self._value),
+        "chain_id": u256(self._chain_id),
+    }
+    if message is not None:
+        for key, value in updates.items():
+            try:
+                setattr(message, key, value)
+            except Exception:
+                pass
+        raw = getattr(message, "raw", None)
+        if isinstance(raw, dict):
+            raw.update(updates)
+            raw["datetime"] = self._datetime
+
+    raw = getattr(gl, "message_raw", None)
+    if isinstance(raw, dict):
+        raw.update(updates)
+        raw["datetime"] = self._datetime
+
+
+VMContext._refresh_gl_message = _refresh_faultline_message
