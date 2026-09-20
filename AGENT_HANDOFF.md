@@ -17,7 +17,7 @@ The app exposes contextual retry, unrevealed-evidence expiry, incident expiry, w
 
 ## Verified state and constraints
 
-GenVM lint/schema pass; 24 Direct Mode tests and 4 Studionet integration tests pass; release hygiene, frontend typecheck/build and hosted check are part of final CI. Deployed source and schema match. The older `0x7655...` deployment is superseded and must not be described as canonical.
+GenVM lint/schema pass; 24 Direct Mode tests and 4 Studionet integration tests pass; release hygiene, frontend typecheck/build and hosted check passed in [CI run 35534583427](https://github.com/Ifem1/faultline/actions/runs/35534583427) for commit `11b07ce560fc857ba5f5c25be9b772961c5408fe`. Deployed source and schema match. The older `0x7655...` deployment is superseded and must not be described as canonical.
 
 Keep the single Intelligent Contract, Studionet chain 61999 and exact RPC. Keep wallet support generic EIP-1193 through `window.ethereum`; add no Snaps, WalletConnect, embedded wallet, wallet-specific API, or backend signer. Preserve substantive validator replay and distinct SOURCE_UNAVAILABLE/INVALID_SOURCE/INCONCLUSIVE semantics. The known prior-cycle structured/free-text basis discrepancy remains documented; it was not a settlement vulnerability, and this release does not change the contract to address it.
 

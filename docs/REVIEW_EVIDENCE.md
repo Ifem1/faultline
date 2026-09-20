@@ -11,7 +11,7 @@ This is the authoritative release record. It distinguishes new-deployment proof 
 - Deployed schema: 27 methods (12 views, 15 writes), matching repository source. It includes cancellation, all expiry methods, retry, and paginated `list_evidence(incident_id, offset, count)`.
 - Finalized `get_stats`: version `0.1.2-studionet`, `Studionet`, chain `61999`, RPC `https://studio.genlayer.com/api`, accounting balanced. Initial counters/escrows were zero.
 - The new contract was called through finalized stats, registry, and repeated stable reads. Current 4/4 read-only integration tests independently verify deployment finality, accounting, registry shape, and stable reads.
-- Hosted frontend: [https://faultline-eight-lemon.vercel.app/](https://faultline-eight-lemon.vercel.app/). Production variables are configured for the new address, chain 61999, exact RPC and stable explorer. Final production deployment and public bundle verification are pending release CI.
+- Hosted frontend: [https://faultline-eight-lemon.vercel.app/](https://faultline-eight-lemon.vercel.app/). Production variables and shipped bundle use the new address, chain 61999, exact RPC and stable explorer.
 
 ## Steward remediation in 0.1.2
 
@@ -32,7 +32,8 @@ Direct Mode test `test_twelve_nonverified_submissions_cannot_block_valid_breach_
 - `pytest tests/integration/ -q -s`: **4 passed** against the new canonical Studionet deployment.
 - `python scripts/check_release.py`: passed, Studionet 61999 only and one contract.
 - Frontend: `npm ci`, `npm run typecheck`, and `npm run build` passed locally.
-- GitHub CI and hosted frontend check: pending the final pushed commit and Vercel production deployment.
+- GitHub Actions run [35534583427](https://github.com/Ifem1/faultline/actions/runs/35534583427) on release commit [`11b07ce560fc857ba5f5c25be9b772961c5408fe`](https://github.com/Ifem1/faultline/commit/11b07ce560fc857ba5f5c25be9b772961c5408fe): all jobs succeeded, including lint, 24 Direct Mode tests, 4 Studionet integration tests, frontend install/typecheck/build, release hygiene, and hosted frontend verification.
+- Public bundle smoke check: 6 routes and 14 Next.js chunks; confirmed contract `0x5756f77aa6De57489132D1dB3e1D84E047559bF1`, RPC, explorer and chain 61999.
 
 ## Historical live activity — superseded contract only
 

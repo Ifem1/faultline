@@ -4,7 +4,7 @@
 
 Faultline 0.1.2 is deployed to GenLayer Studionet only (chain `61999`, RPC `https://studio.genlayer.com/api`). Canonical contract: [`0x5756f77aa6De57489132D1dB3e1D84E047559bF1`](https://explorer-studio.genlayer.com/address/0x5756f77aa6De57489132D1dB3e1D84E047559bF1); deployment transaction [`0x6faf267a55b36c21541524fa40c018e78c1a52ada65571ae5e15bacfa481bb66`](https://explorer-studio.genlayer.com/tx/0x6faf267a55b36c21541524fa40c018e78c1a52ada65571ae5e15bacfa481bb66). Deployed source matches repository source, and the 27-method schema matches (12 views, 15 writes). Live `get_stats` reports version `0.1.2-studionet`, Studionet/61999, exact RPC, and balanced accounting.
 
-Hosted frontend: [faultline-eight-lemon.vercel.app](https://faultline-eight-lemon.vercel.app/), wired to the new contract and stable Studionet configuration. CI: final run is pending after this release commit.
+Hosted frontend: [faultline-eight-lemon.vercel.app](https://faultline-eight-lemon.vercel.app/), wired to the new contract and stable Studionet configuration. CI passed on release commit [`11b07ce560fc857ba5f5c25be9b772961c5408fe`](https://github.com/Ifem1/faultline/commit/11b07ce560fc857ba5f5c25be9b772961c5408fe): [run 35534583427](https://github.com/Ifem1/faultline/actions/runs/35534583427). All contract, frontend, integration, and hosted frontend jobs succeeded.
 
 ## Steward remediation
 
@@ -20,7 +20,7 @@ Hosted frontend: [faultline-eight-lemon.vercel.app](https://faultline-eight-lemo
 - Direct Mode: 24 tests, including the new capacity transition, retry, bounded adjudication and payout cases.
 - Studionet integration: 4 read-only tests against the new canonical deployment.
 - Release/network hygiene: passed; chain 61999 only.
-- Frontend npm install, typecheck, production build, and hosted bundle verification: required final CI gates.
+- Frontend npm install, typecheck, production build, and hosted bundle verification: passed in the linked final CI run.
 - Generic injected EIP-1193 only (`window.ethereum`).
 
 ## Historical live evidence and limits
