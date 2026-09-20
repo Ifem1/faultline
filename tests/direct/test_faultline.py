@@ -154,6 +154,29 @@ def submit_verified(vm, contract, incident_id, submitter, family, url, fact):
     return evidence_id
 
 
+def commit_only(vm, contract, incident_id, submitter, family, url, fact, salt=SALT):
+    digest = commitment(vm, incident_id, submitter, family, url, fact, salt)
+    vm.sender = submitter
+    vm.value = EVIDENCE_BOND
+    try:
+        evidence_id = contract.commit_evidence(incident_id, digest)
+    finally:
+        vm.value = 0
+    return evidence_id
+
+
+def examine(vm, contract, evidence_id, result=None, status=200):
+    vm.sender = vm._contract_address
+    vm.clear_mocks()
+    if status != 200:
+        vm.mock_web(r"(?s).*", {"status": status, "body": "unavailable"})
+    else:
+        mock_llm(vm, result or source_result())
+        mock_source(vm)
+    contract.evaluate_evidence(evidence_id)
+    assert vm.run_validator() is True
+
+
 def test_release_and_warranty_are_real_funded_records(direct_vm, direct_deploy, direct_alice):
     contract = direct_deploy("contracts/faultline.py")
     release_id, warranty_id = setup_release_and_warranty(direct_vm, contract, direct_alice)
@@ -511,3 +534,172 @@ def test_active_incident_blocks_warranty_expiry(direct_vm, direct_deploy, direct
     warp(direct_vm, NOW + 7201)
     with pytest.raises(Exception, match="active incident"):
         contract.expire_warranty(warranty_id)
+
+
+def test_capacity_tracks_active_evidence_but_keeps_history(direct_vm, direct_deploy, direct_alice, direct_bob):
+    contract = direct_deploy("contracts/faultline.py")
+    _, warranty_id = setup_release_and_warranty(direct_vm, contract, direct_alice)
+    incident_id = open_incident(direct_vm, contract, warranty_id, direct_bob)
+
+    unavailable_url = "https://vendor.example.com/capacity-unavailable"
+    unavailable_fact = "Temporary outage"
+    unavailable_id = commit_only(direct_vm, contract, incident_id, direct_bob, "VENDOR", unavailable_url, unavailable_fact)
+    incident = contract.get_incident(incident_id)
+    assert incident["evidence_count"] == "1"
+    assert incident["evidence_capacity_used"] == "1"
+    assert incident["evidence_capacity_remaining"] == "11"
+    contract.reveal_evidence(unavailable_id, "VENDOR", unavailable_url, unavailable_fact, SALT)
+    assert contract.get_incident(incident_id)["evidence_capacity_used"] == "1"  # PENDING_SOURCE still occupies its slot.
+    examine(direct_vm, contract, unavailable_id, status=503)
+    assert contract.get_evidence(unavailable_id)["status"] == "SOURCE_UNAVAILABLE"
+    assert contract.get_incident(incident_id)["evidence_capacity_used"] == "0"
+
+    direct_vm.sender = direct_bob
+    contract.retry_evidence(unavailable_id)
+    assert contract.get_incident(incident_id)["evidence_capacity_used"] == "1"
+    examine(direct_vm, contract, unavailable_id, status=503)
+    assert contract.get_incident(incident_id)["evidence_capacity_used"] == "0"
+
+    invalid_url = "https://research.example.com/capacity-invalid"
+    invalid_fact = "Unrelated article"
+    invalid_id = commit_only(direct_vm, contract, incident_id, direct_bob, "SECURITY_RESEARCH", invalid_url, invalid_fact)
+    contract.reveal_evidence(invalid_id, "SECURITY_RESEARCH", invalid_url, invalid_fact, SALT)
+    assert contract.get_incident(incident_id)["evidence_capacity_used"] == "1"
+    examine(direct_vm, contract, invalid_id, source_result(same_package=False, material=False))
+    assert contract.get_evidence(invalid_id)["status"] == "INVALID_SOURCE"
+    assert contract.get_incident(incident_id)["evidence_capacity_used"] == "0"
+
+    unrevealed_id = commit_only(
+        direct_vm, contract, incident_id, direct_bob, "VENDOR",
+        "https://vendor.example.com/capacity-unrevealed", "Never revealed",
+    )
+    deadline = int(contract.get_evidence(unrevealed_id)["reveal_deadline"])
+    warp(direct_vm, deadline)
+    contract.expire_unrevealed_evidence(unrevealed_id)
+    assert contract.get_evidence(unrevealed_id)["status"] == "UNREVEALED"
+    incident = contract.get_incident(incident_id)
+    assert incident["evidence_count"] == "3"  # History is never decremented.
+    assert incident["evidence_capacity_used"] == "0"
+    assert incident["evidence_capacity_limit"] == "12"
+    assert contract.get_stats()["accounting_balanced"] is True
+
+
+def test_retry_fails_cleanly_when_other_evidence_uses_all_capacity(direct_vm, direct_deploy, direct_alice, direct_bob):
+    contract = direct_deploy("contracts/faultline.py")
+    _, warranty_id = setup_release_and_warranty(direct_vm, contract, direct_alice)
+    incident_id = open_incident(direct_vm, contract, warranty_id, direct_bob)
+    url = "https://vendor.example.com/retry-capacity"
+    fact = "Unavailable then retry"
+    retry_id = commit_only(direct_vm, contract, incident_id, direct_bob, "VENDOR", url, fact)
+    contract.reveal_evidence(retry_id, "VENDOR", url, fact, SALT)
+    examine(direct_vm, contract, retry_id, status=503)
+    assert contract.get_incident(incident_id)["evidence_capacity_used"] == "0"
+
+    for index in range(12):
+        commit_only(
+            direct_vm, contract, incident_id, direct_bob, "VENDOR",
+            f"https://vendor.example.com/fill-{index}", f"unrevealed {index}",
+        )
+    incident = contract.get_incident(incident_id)
+    assert incident["evidence_capacity_used"] == incident["evidence_capacity_limit"] == "12"
+    direct_vm.sender = direct_bob
+    with pytest.raises(Exception, match="capacity reached"):
+        contract.retry_evidence(retry_id)
+    incident = contract.get_incident(incident_id)
+    assert incident["evidence_capacity_used"] == "12"
+    assert int(incident["evidence_count"]) == 13
+    assert contract.get_stats()["accounting_balanced"] is True
+
+
+def test_repeated_unavailable_retry_cycles_do_not_leak_capacity(direct_vm, direct_deploy, direct_alice, direct_bob):
+    contract = direct_deploy("contracts/faultline.py")
+    _, warranty_id = setup_release_and_warranty(direct_vm, contract, direct_alice)
+    incident_id = open_incident(direct_vm, contract, warranty_id, direct_bob)
+    url = "https://vendor.example.com/repeated-outage"
+    fact = "Unavailable source"
+    evidence_id = commit_only(direct_vm, contract, incident_id, direct_bob, "VENDOR", url, fact)
+    contract.reveal_evidence(evidence_id, "VENDOR", url, fact, SALT)
+    for _ in range(4):
+        examine(direct_vm, contract, evidence_id, status=503)
+        incident = contract.get_incident(incident_id)
+        assert contract.get_evidence(evidence_id)["status"] == "SOURCE_UNAVAILABLE"
+        assert incident["evidence_capacity_used"] == "0"
+        assert incident["evidence_count"] == "1"  # Retry reuses this historical record.
+        assert int(incident["evidence_capacity_used"]) <= int(incident["evidence_capacity_limit"])
+        if _ < 3:
+            direct_vm.sender = direct_bob
+            contract.retry_evidence(evidence_id)
+            assert contract.get_incident(incident_id)["evidence_capacity_used"] == "1"
+    assert contract.get_stats()["accounting_balanced"] is True
+
+
+def test_twelve_nonverified_submissions_cannot_block_valid_breach_adjudication(
+    direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie,
+):
+    contract = direct_deploy("contracts/faultline.py")
+    _, warranty_id = setup_release_and_warranty(direct_vm, contract, direct_alice)
+    coverage = 2 * 10**17
+    premium = (coverage * 500 + 9999) // 10000
+    direct_vm.sender = direct_charlie
+    direct_vm.value = premium
+    contract.buy_coverage(warranty_id, coverage)
+    direct_vm.value = 0
+    incident_id = open_incident(direct_vm, contract, warranty_id, direct_bob)
+
+    failed_entries = []
+    for index in range(5):
+        url = f"https://vendor.example.com/unavailable-{index}"
+        fact = f"Unavailable source {index}"
+        failed_entries.append((commit_only(direct_vm, contract, incident_id, direct_bob, "VENDOR", url, fact), "VENDOR", url, fact))
+    for index in range(5):
+        url = f"https://research.example.com/invalid-{index}"
+        fact = f"Unrelated source {index}"
+        failed_entries.append((commit_only(direct_vm, contract, incident_id, direct_bob, "SECURITY_RESEARCH", url, fact), "SECURITY_RESEARCH", url, fact))
+    for index in range(2):
+        url = f"https://vendor.example.com/unrevealed-{index}"
+        fact = f"Unrevealed source {index}"
+        failed_entries.append((commit_only(direct_vm, contract, incident_id, direct_bob, "VENDOR", url, fact), "VENDOR", url, fact))
+
+    for evidence_id, family, url, fact in failed_entries[:5]:
+        direct_vm.sender = direct_bob
+        contract.reveal_evidence(evidence_id, family, url, fact, SALT)
+        examine(direct_vm, contract, evidence_id, status=503)
+
+    # The invalid and unrevealed group remains committed at this point; reveal invalid submissions and
+    # then expire the two remaining commitments after their common reveal deadline.
+    for evidence_id, family, url, fact in failed_entries[5:10]:
+        direct_vm.sender = direct_bob
+        contract.reveal_evidence(evidence_id, family, url, fact, SALT)
+        examine(direct_vm, contract, evidence_id, source_result(same_package=False, material=False))
+    common_deadline = int(contract.get_evidence(failed_entries[10][0])["reveal_deadline"])
+    warp(direct_vm, common_deadline)
+    for evidence_id, _, _, _ in failed_entries[10:]:
+        contract.expire_unrevealed_evidence(evidence_id)
+
+    incident = contract.get_incident(incident_id)
+    assert incident["evidence_count"] == "12"
+    assert incident["evidence_capacity_used"] == "0"
+    assert all(contract.get_evidence(evidence_id)["status"] in {"SOURCE_UNAVAILABLE", "INVALID_SOURCE", "UNREVEALED"} for evidence_id, _, _, _ in failed_entries)
+
+    submit_verified(direct_vm, contract, incident_id, direct_bob, "VENDOR", "https://vendor.example.com/valid-a", "3.7.4 is affected")
+    submit_verified(direct_vm, contract, incident_id, direct_charlie, "NVD", "https://nvd.example.com/valid-b", "3.7.4 is affected")
+    incident = contract.get_incident(incident_id)
+    assert incident["evidence_count"] == "14"
+    assert incident["evidence_capacity_used"] == "2"
+    assert incident["evidence_capacity_limit"] == "12"
+    assert incident["verified_count"] == "2"
+    assert incident["verified_families"] == ["VENDOR", "NVD"]
+    first_page = contract.list_evidence(incident_id, 0, 12)
+    second_page = contract.list_evidence(incident_id, 12, 25)
+    assert first_page["total"] == "14" and len(first_page["items"]) == 12
+    assert second_page["total"] == "14" and len(second_page["items"]) == 2
+    assert second_page["items"][0]["status"] == "VERIFIED"
+
+    direct_vm.sender = direct_bob
+    mock_llm(direct_vm, breach_result())
+    assert contract.adjudicate_incident(incident_id) == "BREACHED"
+    assert direct_vm.run_validator() is True
+    warranty = contract.get_warranty(warranty_id)
+    assert warranty["status"] == "BREACHED"
+    assert warranty["payout_reserve_atto"] == str(coverage)
+    assert contract.get_stats()["accounting_balanced"] is True

@@ -1,7 +1,19 @@
 import type { EvidenceRecord } from "@/lib/types";
 import { Status } from "./Status";
 
-export function EvidenceRows({ evidence }: { evidence: EvidenceRecord[] }) {
+export function EvidenceRows({
+  evidence,
+  nowSeconds,
+  canRetry,
+  onRetry,
+  onExpireUnrevealed,
+}: {
+  evidence: EvidenceRecord[];
+  nowSeconds: number;
+  canRetry: boolean;
+  onRetry: (id: string) => void;
+  onExpireUnrevealed: (id: string) => void;
+}) {
   return (
     <div className="evidence-table">
       <div className="evidence-head"><span>source</span><span>version</span><span>severity</span><span>class</span><span>result</span></div>
@@ -12,6 +24,8 @@ export function EvidenceRows({ evidence }: { evidence: EvidenceRecord[] }) {
           <div>{item.severity_qualifies ? "qualifies" : "not met"}</div>
           <div>{item.class_matches ? "matches" : "not met"}</div>
           <div><Status value={item.status} /></div>
+          {item.status === "SOURCE_UNAVAILABLE" && canRetry ? <button className="text-button evidence-action" onClick={() => onRetry(item.evidence_id)}>retry evidence</button> : null}
+          {item.status === "COMMITTED" && item.reveal_deadline && nowSeconds >= Number(item.reveal_deadline) ? <button className="text-button evidence-action" onClick={() => onExpireUnrevealed(item.evidence_id)}>expire unrevealed evidence</button> : null}
           {item.basis ? <p>{item.basis}</p> : null}
         </div>
       ))}

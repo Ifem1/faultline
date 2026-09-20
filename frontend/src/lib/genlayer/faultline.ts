@@ -4,7 +4,7 @@ import { CONTRACT_ADDRESS, latestFinalRead, writeClient } from "./client";
 import { estimateWriteFees } from "./fees";
 import { asPlain } from "@/lib/format";
 import { TransactionStatus } from "genlayer-js/types";
-import type { EvidenceRecord, IncidentRecord, ReleaseRecord, TxState, WarrantyRecord } from "@/lib/types";
+import type { EvidencePage, IncidentRecord, ReleaseRecord, TxState, WarrantyRecord } from "@/lib/types";
 
 export const SOURCE_FAMILIES = [
   "VENDOR",
@@ -159,8 +159,8 @@ export const Faultline = {
     return asPlain<IncidentRecord>(await latestFinalRead("get_incident", [id]));
   },
 
-  async evidence(incidentId: string): Promise<EvidenceRecord[]> {
-    return asPlain<EvidenceRecord[]>(await latestFinalRead("list_evidence", [incidentId]));
+  async evidence(incidentId: string, offset = 0, count = 25): Promise<EvidencePage> {
+    return asPlain<EvidencePage>(await latestFinalRead("list_evidence", [incidentId, offset, count]));
   },
 
   async stats() {

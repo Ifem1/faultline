@@ -1,28 +1,24 @@
 # Faultline release handoff
 
-Faultline’s Studionet release and required engineering gates are complete. This handoff supersedes the original build-and-deploy checklist below; that checklist described work before the canonical deployment and live lifecycle evidence existed.
-
 ## Canonical release
 
 - Network: GenLayer Studionet, chain `61999`
 - RPC: `https://studio.genlayer.com/api`
-- Contract: `0x7655d42C17a8aE1E126af4982A901Bd121cDf221`
-- Deployment transaction: `0x4592b0ff972d4f2378ce033d85ff8a46dab2950ae85129a9c259e02fbb15d88f`
+- Contract/version: [`0x5756f77aa6De57489132D1dB3e1D84E047559bF1`](https://explorer-studio.genlayer.com/address/0x5756f77aa6De57489132D1dB3e1D84E047559bF1), `0.1.2-studionet`
+- Deployment transaction: [`0x6faf267a55b36c21541524fa40c018e78c1a52ada65571ae5e15bacfa481bb66`](https://explorer-studio.genlayer.com/tx/0x6faf267a55b36c21541524fa40c018e78c1a52ada65571ae5e15bacfa481bb66)
 - Frontend: [https://faultline-eight-lemon.vercel.app/](https://faultline-eight-lemon.vercel.app/)
-- Full evidence: [`docs/REVIEW_EVIDENCE.md`](docs/REVIEW_EVIDENCE.md)
+- Evidence: [`docs/REVIEW_EVIDENCE.md`](docs/REVIEW_EVIDENCE.md)
 
-## Verified state
+## Steward remediation
 
-CI is green. GenVM lint, the 20 Direct Mode tests, 4 Studionet integration tests, release/network hygiene, frontend typecheck, production build and hosted frontend check passed. The canonical source and deployed schema match. Live final-contract activity and its limits are documented in the evidence file.
+Permanent evidence history and current active admission capacity are separate. Terminal SOURCE_UNAVAILABLE, INVALID_SOURCE, and UNREVEALED release capacity; retry reacquires capacity only when the incident is OPEN, before deadline, and a slot is free. VERIFIED records remain capacity-consuming. Adjudication iterates a bounded verified index, and historical evidence reads are paginated. Direct Mode test `test_twelve_nonverified_submissions_cannot_block_valid_breach_adjudication` reaches BREACHED after 12 failed/unrevealed historical submissions followed by valid independent-family corroboration, and checks payout reserve/accounting.
 
-No live `BREACHED` adjudication or payout was produced. Cycle B had one verified source family, and the relevant public disclosure dates preceded the frozen warranty start. Incident expiry set `last_verdict = INCONCLUSIVE` with zero adjudication rounds; it was not a semantic adjudication. The successful reserve/claim path is covered by Direct Mode tests.
+The app exposes contextual retry, unrevealed-evidence expiry, incident expiry, warranty expiry, and eligible cancellation controls through the existing injected-wallet write path. Availability is gated by finalized contract status/deadline/ownership data.
 
-## Maintenance constraints
+## Verified state and constraints
 
-- Keep the application on Studionet chain `61999` and the exact RPC above unless the owner explicitly authorizes migration.
-- Keep Faultline as one Intelligent Contract in `contracts/faultline.py`.
-- Keep browser wallet access generic injected EIP-1193 through `window.ethereum`; do not add a backend signer, embedded wallet, WalletConnect, Snaps or wallet-specific extension APIs.
-- Preserve validator replay and the distinctions among `SOURCE_UNAVAILABLE`, `INVALID_SOURCE`, pending evidence and adjudication verdicts. `SOURCE_UNAVAILABLE` is a retryable non-decision; expiry fallback `INCONCLUSIVE` must not be presented as an adjudication.
-- The live structured/free-text discrepancy for `fl-ev-13` is documented as a future semantic-output hardening item. Do not change the deployed contract to address it in this release.
+GenVM lint/schema pass; 24 Direct Mode tests and 4 Studionet integration tests pass; release hygiene, frontend typecheck/build and hosted check are part of final CI. Deployed source and schema match. The older `0x7655...` deployment is superseded and must not be described as canonical.
 
-This handoff is documentation only. The canonical deployment remains in place; no further demo cycle or redeployment is required for this release record.
+Keep the single Intelligent Contract, Studionet chain 61999 and exact RPC. Keep wallet support generic EIP-1193 through `window.ethereum`; add no Snaps, WalletConnect, embedded wallet, wallet-specific API, or backend signer. Preserve substantive validator replay and distinct SOURCE_UNAVAILABLE/INVALID_SOURCE/INCONCLUSIVE semantics. The known prior-cycle structured/free-text basis discrepancy remains documented; it was not a settlement vulnerability, and this release does not change the contract to address it.
+
+Live lifecycle records from 0.1.1 remain historical. No live BREACHED payout is claimed; Direct Mode proves positive settlement. Time-gated retry/expiry/cancel methods have not been invoked on 0.1.2.

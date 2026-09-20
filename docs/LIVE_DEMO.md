@@ -1,25 +1,23 @@
-# Live reviewer guide
+# Live reviewer guide — Faultline 0.1.2
 
-Faultline is deployed at [https://faultline-eight-lemon.vercel.app/](https://faultline-eight-lemon.vercel.app/) and uses the canonical contract [`0x7655d42C17a8aE1E126af4982A901Bd121cDf221`](https://explorer-studio.genlayer.com/address/0x7655d42C17a8aE1E126af4982A901Bd121cDf221) on GenLayer Studionet (chain `61999`). The documented live cycles are historical and already recorded; this guide does not ask reviewers to create another warranty or imply a live breach occurred.
+The production frontend is [faultline-eight-lemon.vercel.app](https://faultline-eight-lemon.vercel.app/). It connects through generic injected EIP-1193 (`window.ethereum`) to the canonical Studionet contract [`0x5756f77aa6De57489132D1dB3e1D84E047559bF1`](https://explorer-studio.genlayer.com/address/0x5756f77aa6De57489132D1dB3e1D84E047559bF1), chain `61999`, RPC `https://studio.genlayer.com/api`.
 
 ## Reviewer path
 
-1. Open the hosted app with an injected EIP-1193 wallet configured for Studionet. The frontend uses `window.ethereum` only.
-2. Browse `/warranties`, `/incidents` and their detail routes to inspect finalized canonical contract state. `/protocol` explains the evidence and verdict semantics.
-3. Compare the release, funded warranty, coverage, incident and evidence records against the transaction hashes and final reads in [`REVIEW_EVIDENCE.md`](REVIEW_EVIDENCE.md).
-4. Inspect deployment, release and lifecycle transactions through the linked Studionet explorer entries.
-5. Treat current source callbacks marked pending as pending. Do not infer that an attempted evidence submission is a verified source or adjudication.
+1. Browse `/warranties` and `/incidents`, then open detail pages to inspect finalized state.
+2. On an incident detail, compare historical submissions with active capacity. A retry appears only for SOURCE_UNAVAILABLE while the incident is OPEN, before its evidence deadline, and with free capacity. A committed item past its reveal deadline can be expired. An OPEN incident after its evidence deadline can be expired through the liveness fallback, which sets EXPIRED/INCONCLUSIVE without semantic adjudication.
+3. On a warranty detail, the publisher can cancel an OPEN warranty only when coverage is zero and no active incident exists. An OPEN warranty can be expired after its end time if no active incident remains.
+4. Writes use the connected injected wallet and existing transaction rail. The app considers a write successful only when consensus is accepted/finalized and GenVM execution succeeds.
+5. See [`REVIEW_EVIDENCE.md`](REVIEW_EVIDENCE.md) for deployment proof, live readback, tests, and the explicit boundaries of prior live transactions.
+
+## Steward capacity remediation
+
+`evidence_count` is the permanent historical submission count; `evidence_capacity_used`, limit, and remaining are separate finalized contract reads. COMMITTED, PENDING_SOURCE, and VERIFIED consume a slot. SOURCE_UNAVAILABLE, INVALID_SOURCE, and UNREVEALED release it. A retry reacquires capacity and fails cleanly if all 12 slots are occupied. Adjudication walks only the bounded verified-ID set; historical browsing is paginated.
+
+The adversarial Direct Mode test `test_twelve_nonverified_submissions_cannot_block_valid_breach_adjudication` fills 12 historical slots with unavailable, invalid and unrevealed outcomes, then verifies two distinct-family sources, adjudicates BREACHED, and checks the payout reserve and accounting invariant.
 
 ## Live evidence already recorded
 
-Two evidence cycles were attempted against the final contract. They demonstrated funded warranty and coverage activity, incident creation, commit/reveal, live `INVALID_SOURCE`, `SOURCE_UNAVAILABLE` and `VERIFIED` examination outcomes, unrevealed-bond resolution, deadline rejection, incident and warranty expiry, publisher credit withdrawal, and balanced accounting. Full transaction-by-transaction records are in [`REVIEW_EVIDENCE.md`](REVIEW_EVIDENCE.md).
+Cycle A and Cycle B transactions in the evidence file target the former 0.1.1 deployment `0x7655d42C17a8aE1E126af4982A901Bd121cDf221`. They are historical and do not describe state on the current 0.1.2 contract. Those cycles proved real funded lifecycle operations and non-breach outcomes, but no live adjudication or coverage payout. Available Cycle B disclosures predated its frozen warranty start, so a BREACHED claim would have been untruthful.
 
-Cycle B did not reach adjudication: the contract requires two independent verified source families and only one reached `VERIFIED`. Its incident expired through the liveness fallback, leaving status `EXPIRED`, `last_verdict = INCONCLUSIVE`, and zero adjudication rounds. This was not an adjudicated `INCONCLUSIVE` verdict.
-
-## Expected positive settlement path
-
-The contract’s positive settlement behavior is covered by Direct Mode tests, not by a live final-contract payout transaction. When an adjudication truthfully returns `BREACHED`, deterministic settlement reserves the covered amount from the warranty bond; each eligible coverage holder claims once; claimable credit is withdrawn to its credited recipient. See the test and protocol descriptions in the repository. Do not describe this expected/tested path as a live demonstration.
-
-## What happened in the real Studionet cycles
-
-For Cycle B, the GHSA publication date was September 18, 2026 and the NVD publication timestamp was September 19 at 00:16 UTC; the warranty began around September 19 at 15:22 UTC. Those disclosures predate the frozen coverage period. The one verified source also had structured `publication_in_window = false`. The protocol therefore had no truthful basis for a live breach. No dates or validation rules were altered, no payout reserve was created, and no coverage claim was made. See the source links and known free-text basis discrepancy in [`REVIEW_EVIDENCE.md`](REVIEW_EVIDENCE.md).
+The 0.1.2 contract is newly deployed and has been verified by finalized deployment execution, matching source/schema, callable finalized reads and balanced fresh accounting. No new demo cycle was created to manufacture live evidence. The positive BREACHED → reserve → claim → withdrawal path is proven in Direct Mode, not claimed as live. Time-gated 0.1.2 retry/expiry/cancel writes have not yet been invoked live.

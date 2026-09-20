@@ -8,7 +8,7 @@ import urllib.request
 from urllib.parse import urljoin
 
 BASE = os.environ.get("FAULTLINE_FRONTEND_URL", "https://faultline-eight-lemon.vercel.app/").rstrip("/") + "/"
-CONTRACT = "0x7655d42C17a8aE1E126af4982A901Bd121cDf221"
+CONTRACT = "0x5756f77aa6De57489132D1dB3e1D84E047559bF1"
 RPC = "https://studio.genlayer.com/api"
 EXPLORER = "https://explorer-studio.genlayer.com"
 ROUTES = ("", "warranties", "incidents", "open", "account", "protocol")

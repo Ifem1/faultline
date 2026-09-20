@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Faultline, SOURCE_FAMILIES } from "@/lib/genlayer/faultline";
@@ -37,20 +37,27 @@ export default function IncidentDetail() {
   const [warranty, setWarranty] = useState<WarrantyRecord | null>(null);
   const [release, setRelease] = useState<ReleaseRecord | null>(null);
   const [evidence, setEvidence] = useState<EvidenceRecord[]>([]);
+  const [evidenceTotal, setEvidenceTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [tx, setTx] = useState<TxState>({ stage: "idle" });
   const [loading, setLoading] = useState(Faultline.configured());
   const [error, setError] = useState("");
   const [pendingReveals, setPendingReveals] = useState<PendingReveal[]>([]);
+  const [nowSeconds, setNowSeconds] = useState(() => Math.floor(Date.now() / 1000));
 
   const refresh = useCallback(async () => {
     if (!Faultline.configured()) return;
     const i = await Faultline.incident(id);
     const w = await Faultline.warranty(i.warranty_id);
-    const [r, ev] = await Promise.all([Faultline.release(w.release_id), Faultline.evidence(id)]);
-    setIncident(i); setWarranty(w); setRelease(r); setEvidence(ev);
+    const [r, page] = await Promise.all([Faultline.release(w.release_id), Faultline.evidence(id)]);
+    setIncident(i); setWarranty(w); setRelease(r); setEvidence(page.items); setEvidenceTotal(Number(page.total));
   }, [id]);
 
   useEffect(() => { refresh().catch((e) => setError(e.message)).finally(() => setLoading(false)); }, [refresh]);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowSeconds(Math.floor(Date.now() / 1000)), 5000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const rows: PendingReveal[] = [];
@@ -70,7 +77,23 @@ export default function IncidentDetail() {
     setPendingReveals(rows);
   }, [id, evidence]);
 
-  const familyCount = useMemo(() => new Set(evidence.filter(e => e.status === "VERIFIED").map(e => e.source_family)).size, [evidence]);
+  const familyCount = incident?.verified_family_count !== undefined
+    ? Number(incident.verified_family_count)
+    : new Set(evidence.filter(e => e.status === "VERIFIED").map(e => e.source_family)).size;
+
+  async function loadMoreEvidence() {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const page = await Faultline.evidence(id, evidence.length, 25);
+      setEvidence((current) => [...current, ...page.items]);
+      setEvidenceTotal(Number(page.total));
+    } catch (e: any) {
+      setError(e?.message || "Could not load the next evidence page.");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   async function act(name: string, args: any[], value = 0n) {
     if (!wallet.address) { await wallet.connect(); return false; }
@@ -101,8 +124,8 @@ export default function IncidentDetail() {
       localStorage.setItem(`faultline.reveal.${commitment}`, JSON.stringify({ incidentId: id, family, url, fact, salt }));
       const committed = await act("commit_evidence", [id, commitment], BigInt(warranty.evidence_bond_atto || 0));
       if (!committed) return;
-      const rows = await Faultline.evidence(id);
-      const record = rows.find((row) => row.commitment === commitment);
+      const page = await Faultline.evidence(id);
+      const record = page.items.find((row) => row.commitment === commitment);
       if (!record) throw new Error("Commit finalized but its evidence record was not found. The reveal material is saved locally; refresh this incident to recover it.");
       const revealed = await act("reveal_evidence", [record.evidence_id, family, url, fact, salt]);
       if (revealed) {
@@ -141,6 +164,8 @@ export default function IncidentDetail() {
           </section>
 
           <section className="decision-board">
+            <div><span>active evidence capacity</span><b>{incident.evidence_capacity_used || "0"} / {incident.evidence_capacity_limit || "12"}</b></div>
+            <div><span>historical submissions</span><b>{incident.evidence_count || "0"}</b></div>
             <div><span>evidence closes</span><b>{formatDateTime(incident.evidence_deadline)}</b></div>
             <div><span>required sources</span><b>{warranty.min_sources}</b></div>
             <div><span>required families</span><b>{warranty.min_source_families}</b></div>
@@ -152,8 +177,20 @@ export default function IncidentDetail() {
 
           <section className="source-section">
             <div className="section-bar"><div><span className="eyebrow">source examiner</span><h2>Evidence, one source at a time</h2></div><button className="text-button" onClick={() => refresh()}>refresh finalized state ↻</button></div>
-            <EvidenceRows evidence={evidence} />
+            {incident.status === "OPEN" && incident.evidence_deadline && nowSeconds < Number(incident.evidence_deadline) && Number(incident.evidence_capacity_remaining || 0) === 0 ? <p className="muted-line">All active slots are occupied. Retry becomes available when a non-verified result releases a slot.</p> : null}
+            <EvidenceRows
+              evidence={evidence}
+              nowSeconds={nowSeconds}
+              canRetry={incident.status === "OPEN" && nowSeconds < Number(incident.evidence_deadline || 0) && Number(incident.evidence_capacity_remaining || 0) > 0}
+              onRetry={(evidenceId) => act("retry_evidence", [evidenceId])}
+              onExpireUnrevealed={(evidenceId) => act("expire_unrevealed_evidence", [evidenceId])}
+            />
+            <div className="evidence-pagination"><span>showing {evidence.length} of {evidenceTotal} historical submissions</span>{evidence.length < evidenceTotal ? <button className="text-button" disabled={loadingMore} onClick={loadMoreEvidence}>{loadingMore ? "loading…" : "load next 25 →"}</button> : null}</div>
           </section>
+
+          {incident.status === "OPEN" && incident.evidence_deadline && nowSeconds >= Number(incident.evidence_deadline) ? (
+            <section className="terminal-actions"><div><span className="eyebrow">liveness fallback</span><h2>Close the expired evidence window.</h2><p>Expiring an incident records `EXPIRED` with `last_verdict = INCONCLUSIVE`. This is a timeout path, not semantic adjudication.</p></div><button className="button button-dark" onClick={() => act("expire_incident", [id])}>expire incident</button></section>
+          ) : null}
 
           {pendingReveals.length > 0 ? (
             <section className="recovery-shelf">

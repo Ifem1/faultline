@@ -19,9 +19,9 @@ from genlayer_py.chains import studionet
 from genlayer_py.types import TransactionHashVariant
 
 
-CANONICAL_CONTRACT = "0x7655d42C17a8aE1E126af4982A901Bd121cDf221"
+CANONICAL_CONTRACT = "0x5756f77aa6De57489132D1dB3e1D84E047559bF1"
 CONTRACT = os.getenv("FAULTLINE_CONTRACT", CANONICAL_CONTRACT)
-DEPLOYMENT_TX = "0x4592b0ff972d4f2378ce033d85ff8a46dab2950ae85129a9c259e02fbb15d88f"
+DEPLOYMENT_TX = "0x6faf267a55b36c21541524fa40c018e78c1a52ada65571ae5e15bacfa481bb66"
 RPC = "https://studio.genlayer.com/api"
 
 
@@ -55,7 +55,7 @@ def test_canonical_deployment_transaction_is_finalized(live):
 def test_canonical_contract_stats_and_accounting(live):
     stats = read(live, "get_stats")
     assert stats["product"] == "Faultline"
-    assert stats["version"] == "0.1.1-studionet"
+    assert stats["version"] == "0.1.2-studionet"
     assert stats["network"] == "Studionet"
     assert stats["chain_id"] == "61999"
     assert stats["rpc"] == RPC

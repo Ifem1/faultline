@@ -71,7 +71,12 @@ export type IncidentRecord = {
   opened_at: string;
   evidence_deadline?: string;
   evidence_count?: string;
+  evidence_capacity_used?: string;
+  evidence_capacity_limit?: string;
+  evidence_capacity_remaining?: string;
   verified_count: string;
+  verified_families?: string[];
+  verified_family_count?: string;
   adjudication_rounds?: string;
   last_verdict: string;
   last_basis?: string;
@@ -86,6 +91,9 @@ export type EvidenceRecord = {
   source_url: string;
   claimed_fact?: string;
   status: string;
+  reveal_deadline?: string;
+  examined_at?: string;
+  publication_in_window?: boolean;
   advisory_id: string;
   affected_range: string;
   release_affected: boolean;
@@ -93,4 +101,10 @@ export type EvidenceRecord = {
   class_matches: boolean;
   exclusion_applies: boolean;
   basis: string;
+};
+
+export type EvidencePage = {
+  items: EvidenceRecord[];
+  total: string;
+  offset: string;
 };

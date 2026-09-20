@@ -4,49 +4,37 @@
 
 ### Frozen warranty terms
 
-Economic settlement must never depend on warranty terms that can be edited after coverage begins. The current contract has no warranty mutation method.
+Economic settlement never depends on warranty terms edited after coverage begins. The contract exposes no warranty mutation method.
 
 ### Exact release identity
 
-A warranty points to a registered release with publisher, ecosystem, package name, exact version and SHA-256 release digest.
+A warranty points to a registered release with publisher, ecosystem, package, exact version, digest, and metadata URL.
 
-### Adverse selection boundary
+### Adverse selection
 
-Coverage closes before incidents are allowed to open. The protocol cannot prove that no human saw an undisclosed advisory before buying coverage; it prevents the simpler on-chain failure where users buy coverage after an incident is already active.
+Coverage closes before incidents can open. The protocol prevents purchases after an incident is active; it cannot prove that a person did not learn an advisory off-chain beforehand.
 
-### Source trust
+### Source trust and replay
 
-Faultline does not claim that any HTTPS URL is automatically trustworthy. Source-family classification, package identity and material relevance are themselves consensus fields. The protocol requires multiple distinct source families before adjudication.
+HTTPS content is not automatically trustworthy. Source-family classification, package identity and material relevance are consensus fields. The contract requires multiple distinct source families. Validators reproduce substantive structured output fields; source text and user claims are untrusted input.
 
-### Prompt injection
+### Availability and capacity
 
-Both prompts explicitly treat source content and user claims as untrusted data. Embedded role changes, commands and policy text are not authority. Typed normalization and independent replay limit the effect of arbitrary prose output.
+A network failure or unavailable URL is SOURCE_UNAVAILABLE, a retryable non-decision. Separate active capacity from historical evidence indexing prevents SOURCE_UNAVAILABLE, INVALID_SOURCE, or UNREVEALED records from permanently filling all 12 slots. Retry must reacquire a slot while the incident remains OPEN and before deadline. VERIFIED records keep their slots. Settlement loops over a bounded verified index; historical reads are paginated.
 
-### Source availability
+### Consensus and settlement
 
-Network failure or an unavailable URL is `SOURCE_UNAVAILABLE`, not `NOT_AFFECTED` and not `INVALID_SOURCE`. The evidence can be retried without moving warranty money.
+Validator disagreement prevents an invalid nondeterministic transition. Typed evidence and adjudication results feed deterministic settlement; no LLM chooses transfer amounts or destinations. `FINALIZED` alone is not a successful write: the UI also requires successful GenVM execution.
 
-### Consensus disagreement
+### Pull payments and wallet boundary
 
-Validator disagreement prevents the nondeterministic transaction from becoming a valid state transition. Faultline does not contain a fallback that guesses a financial verdict.
-
-### Settlement
-
-The nondeterministic result determines a typed verdict. Deterministic code then performs accounting. No LLM generates transfer amounts or destination addresses.
-
-### Pull payments
-
-The contract credits recipients before external transfer. `withdraw_credit(recipient)` always sends to the named credited recipient and cannot redirect someone else's balance.
-
-### Injected wallet only
-
-The frontend uses `window.ethereum` as an EIP-1193 provider and binds writes to Studionet 61999. It contains no private keys, backend signer, WalletConnect integration, embedded wallet, or MetaMask Snap request.
+Credits are assigned before transfer. Withdrawal sends only to the named credited recipient. Frontend access is generic injected EIP-1193 through `window.ethereum`; there are no private keys, backend signer, WalletConnect, embedded wallet, or Snaps.
 
 ## Known limits
 
-- Studionet is a development environment, not production settlement infrastructure.
-- HTTPS provenance is not equivalent to a cryptographic publisher attestation.
-- GenVM web fetching may follow redirects without exposing a complete redirect-chain proof to contract logic; reviewers should prefer stable canonical advisory URLs.
-- Source-family diversity reduces simple duplication but does not prove institutional independence.
-- The protocol evaluates disclosed public evidence; it does not discover zero-day vulnerabilities.
-- A live Cycle B source result had a correct structured `publication_in_window = false` field but an incorrect free-text explanation citing August warranty dates. No adjudication ran and the text discrepancy moved no funds. Validators reproduce substantive structured fields; downstream judging and UI should explicitly prioritize those fields over explanatory prose when they conflict. This is a semantic-output quality consideration, not an observed settlement vulnerability. See [`REVIEW_EVIDENCE.md`](REVIEW_EVIDENCE.md).
+- Studionet is a development network, not production settlement infrastructure.
+- HTTPS provenance is not a cryptographic publisher attestation; source-family diversity does not prove institutional independence.
+- GenVM web fetching may not expose a complete redirect chain.
+- The protocol evaluates public evidence and does not discover zero-days.
+- On the superseded 0.1.1 contract, one live result had correct structured `publication_in_window = false` but an incorrect free-text explanation citing August warranty dates. No adjudication ran and no funds moved due to that text. This is a semantic-output quality consideration, not an observed settlement vulnerability. Future hardening should make downstream judging and UI explicitly prioritize structured fields when explanatory prose conflicts. It is documented in [`REVIEW_EVIDENCE.md`](REVIEW_EVIDENCE.md); the 0.1.2 contract was not changed for it.
+- Live historical lifecycle records refer only to the superseded 0.1.1 contract. New 0.1.2 retry/expiry/cancel writes have not been exercised on Studionet; Direct Mode and UI tests/eligibility plus live deployment/read verification cover the release.

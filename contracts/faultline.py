@@ -9,7 +9,7 @@ import re
 from genlayer import *
 
 
-VERSION = "0.1.1-studionet"
+VERSION = "0.1.2-studionet"
 NETWORK_NAME = "Studionet"
 NETWORK_ID = "61999"
 RPC_URL = "https://studio.genlayer.com/api"
@@ -119,6 +119,7 @@ class Incident:
     opened_at: u64
     evidence_deadline: u64
     evidence_count: u32
+    evidence_capacity_used: u32
     verified_count: u32
     adjudication_rounds: u32
     last_verdict: str
@@ -412,6 +413,7 @@ class Faultline(gl.Contract):
     evidence: TreeMap[str, Evidence]
     evidence_ids: DynArray[str]
     incident_evidence_ids: TreeMap[str, str]
+    incident_verified_evidence_ids: TreeMap[str, str]
     seen_incident_urls: TreeMap[str, bool]
 
     coverage: TreeMap[str, u256]
@@ -699,6 +701,7 @@ class Faultline(gl.Contract):
             opened_at=u64(now),
             evidence_deadline=u64(deadline),
             evidence_count=u32(0),
+            evidence_capacity_used=u32(0),
             verified_count=u32(0),
             adjudication_rounds=u32(0),
             last_verdict="",
@@ -737,7 +740,7 @@ class Faultline(gl.Contract):
         now = _now()
         _require(now >= int(incident.evidence_deadline), "[EXPECTED] evidence window has closed")
         _require(now + 60 >= int(incident.evidence_deadline), "[EXPECTED] not enough time remains to reveal evidence")
-        _require(int(incident.evidence_count) >= MAX_EVIDENCE_PER_INCIDENT, "[EXPECTED] evidence limit reached")
+        _require(int(incident.evidence_capacity_used) >= MAX_EVIDENCE_PER_INCIDENT, "[EXPECTED] evidence capacity reached")
         _sha256_hex(commitment, "commitment")
         warranty = self._warranty(incident.warranty_id)
         required_bond = int(warranty.evidence_bond_atto)
@@ -778,6 +781,7 @@ class Faultline(gl.Contract):
         self.evidence_ids.append(evidence_id)
         self.incident_evidence_ids[self._index_key(incident_id, int(incident.evidence_count))] = evidence_id
         incident.evidence_count = u32(int(incident.evidence_count) + 1)
+        incident.evidence_capacity_used = u32(int(incident.evidence_capacity_used) + 1)
         self.incidents[incident_id] = incident
         self.total_deposited = u256(int(self.total_deposited) + required_bond)
         self.evidence_escrow = u256(int(self.evidence_escrow) + required_bond)
@@ -834,6 +838,10 @@ class Faultline(gl.Contract):
         bond = int(item.bond_atto)
         item.status = EVIDENCE_UNREVEALED
         item.bond_atto = u256(0)
+        incident = self._incident(item.incident_id)
+        _require(int(incident.evidence_capacity_used) == 0, "[EXPECTED] evidence capacity underflow")
+        incident.evidence_capacity_used = u32(int(incident.evidence_capacity_used) - 1)
+        self.incidents[incident.incident_id] = incident
         self.evidence[evidence_id] = item
         self.evidence_escrow = u256(int(self.evidence_escrow) - bond)
         self._credit(warranty.publisher, bond)
@@ -845,6 +853,9 @@ class Faultline(gl.Contract):
         incident = self._incident(item.incident_id)
         _require(incident.status != INCIDENT_OPEN, "[EXPECTED] incident is not open")
         _require(_now() >= int(incident.evidence_deadline), "[EXPECTED] evidence window closed")
+        _require(int(incident.evidence_capacity_used) >= MAX_EVIDENCE_PER_INCIDENT, "[EXPECTED] evidence capacity reached")
+        incident.evidence_capacity_used = u32(int(incident.evidence_capacity_used) + 1)
+        self.incidents[incident.incident_id] = incident
         item.status = EVIDENCE_PENDING
         self.evidence[evidence_id] = item
         gl.get_contract_at(gl.message.contract_address).emit(on="finalized").evaluate_evidence(evidence_id)
@@ -1021,12 +1032,18 @@ Return JSON only:
         bond = int(item.bond_atto)
         if not result["source_available"]:
             item.status = EVIDENCE_SOURCE_UNAVAILABLE
+            _require(int(incident.evidence_capacity_used) == 0, "[EXPECTED] evidence capacity underflow")
+            incident.evidence_capacity_used = u32(int(incident.evidence_capacity_used) - 1)
+            self.incidents[incident.incident_id] = incident
             if bond > 0:
                 item.bond_atto = u256(0)
                 self.evidence_escrow = u256(int(self.evidence_escrow) - bond)
                 self._credit(item.submitter, bond)
         elif not result["family_matches"] or not result["same_package"] or not result["material"]:
             item.status = EVIDENCE_INVALID
+            _require(int(incident.evidence_capacity_used) == 0, "[EXPECTED] evidence capacity underflow")
+            incident.evidence_capacity_used = u32(int(incident.evidence_capacity_used) - 1)
+            self.incidents[incident.incident_id] = incident
             if bond > 0:
                 item.bond_atto = u256(0)
                 self.evidence_escrow = u256(int(self.evidence_escrow) - bond)
@@ -1038,6 +1055,9 @@ Return JSON only:
                 self.evidence_escrow = u256(int(self.evidence_escrow) - bond)
                 self._credit(item.submitter, bond)
             incident.verified_count = u32(int(incident.verified_count) + 1)
+            self.incident_verified_evidence_ids[
+                self._index_key(incident.incident_id, int(incident.verified_count) - 1)
+            ] = evidence_id
             self.incidents[incident.incident_id] = incident
 
         self.evidence[evidence_id] = item
@@ -1054,8 +1074,8 @@ Return JSON only:
 
         summaries = []
         families: dict[str, bool] = {}
-        for index in range(int(incident.evidence_count)):
-            evidence_id = self.incident_evidence_ids[self._index_key(incident_id, index)]
+        for index in range(int(incident.verified_count)):
+            evidence_id = self.incident_verified_evidence_ids[self._index_key(incident_id, index)]
             item = self._evidence(evidence_id)
             if item.status != EVIDENCE_VERIFIED:
                 continue
@@ -1286,6 +1306,12 @@ Return JSON only:
     @gl.public.view
     def get_incident(self, incident_id: str) -> dict:
         item = self._incident(incident_id)
+        verified_families = []
+        for index in range(int(item.verified_count)):
+            evidence_id = self.incident_verified_evidence_ids[self._index_key(incident_id, index)]
+            family = self.evidence[evidence_id].source_family
+            if family not in verified_families:
+                verified_families.append(family)
         return {
             "incident_id": item.incident_id,
             "warranty_id": item.warranty_id,
@@ -1296,7 +1322,12 @@ Return JSON only:
             "opened_at": str(int(item.opened_at)),
             "evidence_deadline": str(int(item.evidence_deadline)),
             "evidence_count": str(int(item.evidence_count)),
+            "evidence_capacity_used": str(int(item.evidence_capacity_used)),
+            "evidence_capacity_limit": str(MAX_EVIDENCE_PER_INCIDENT),
+            "evidence_capacity_remaining": str(MAX_EVIDENCE_PER_INCIDENT - int(item.evidence_capacity_used)),
             "verified_count": str(int(item.verified_count)),
+            "verified_families": verified_families,
+            "verified_family_count": str(len(verified_families)),
             "adjudication_rounds": str(int(item.adjudication_rounds)),
             "last_verdict": item.last_verdict,
             "last_basis": item.last_basis,
@@ -1423,10 +1454,14 @@ Return JSON only:
         return items
 
     @gl.public.view
-    def list_evidence(self, incident_id: str) -> list:
+    def list_evidence(self, incident_id: str, offset: u32, count: u32) -> dict:
         incident = self._incident(incident_id)
+        size = int(count)
+        _require(size < 1 or size > MAX_PAGE, "[EXPECTED] page size must be 1..25")
+        start = int(offset)
+        stop = min(int(incident.evidence_count), start + size)
         items = []
-        for index in range(int(incident.evidence_count)):
+        for index in range(start, stop):
             evidence_id = self.incident_evidence_ids[self._index_key(incident_id, index)]
             item = self.evidence[evidence_id]
             items.append(
@@ -1438,6 +1473,9 @@ Return JSON only:
                     "source_url": item.source_url,
                     "claimed_fact": item.claimed_fact,
                     "status": item.status,
+                    "reveal_deadline": str(int(item.reveal_deadline)),
+                    "examined_at": str(int(item.examined_at)),
+                    "publication_in_window": item.publication_in_window,
                     "advisory_id": item.advisory_id,
                     "affected_range": item.affected_range,
                     "release_affected": item.release_affected,
@@ -1447,7 +1485,7 @@ Return JSON only:
                     "basis": item.basis,
                 }
             )
-        return items
+        return {"items": items, "total": str(int(incident.evidence_count)), "offset": str(start)}
 
     @gl.public.view
     def get_stats(self) -> dict:

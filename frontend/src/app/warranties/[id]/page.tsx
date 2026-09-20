@@ -23,6 +23,7 @@ export default function WarrantyDetail() {
   const [tx, setTx] = useState<TxState>({ stage: "idle" });
   const [loading, setLoading] = useState(Faultline.configured());
   const [error, setError] = useState("");
+  const [nowSeconds, setNowSeconds] = useState(() => Math.floor(Date.now() / 1000));
 
   const refresh = useCallback(async () => {
     if (!Faultline.configured()) return;
@@ -33,6 +34,10 @@ export default function WarrantyDetail() {
   }, [id, wallet.address]);
 
   useEffect(() => { refresh().catch((e) => setError(e.message)).finally(() => setLoading(false)); }, [refresh]);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowSeconds(Math.floor(Date.now() / 1000)), 5000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   async function act(name: string, args: any[], value = 0n) {
     if (!wallet.address) return wallet.connect();
@@ -99,6 +104,17 @@ export default function WarrantyDetail() {
           {warranty.status === "BREACHED" && wallet.address && coverage && !coverage.claimed && BigInt(coverage.coverage_atto || 0) > 0n ? (
             <section className="breach-callout"><div><span>settlement ready</span><h2>Your coverage is now a claim.</h2></div><button className="button button-dark" onClick={() => act("claim_breach_payout", [id, wallet.address])}>claim payout</button></section>
           ) : null}
+
+          <section className="terminal-actions">
+            <div><span className="eyebrow">warranty lifecycle</span><h2>Cancellation and expiry</h2><p>Cancellation returns the publisher bond before coverage exists. Expiry returns an open warranty bond after its end time; neither action is available while an incident remains active.</p>
+              {warranty.status === "OPEN" ? <small>Cancel: publisher only, zero coverage, no active incident. Expire: end time passed, no active incident.</small> : <small>Terminal actions are unavailable after this warranty closes.</small>}
+            </div>
+            <div className="terminal-action-buttons">
+              {wallet.address?.toLowerCase() === warranty.publisher.toLowerCase() && warranty.status === "OPEN" && BigInt(warranty.total_coverage_atto || 0) === 0n && !warranty.active_incident_id ? <button className="button button-clear" onClick={() => act("cancel_warranty", [id])}>cancel warranty</button> : null}
+              {warranty.status === "OPEN" && nowSeconds >= Number(warranty.ends_at) && !warranty.active_incident_id ? <button className="button button-dark" onClick={() => act("expire_warranty", [id])}>expire warranty</button> : null}
+              {warranty.status === "OPEN" && !wallet.address ? <button className="button button-clear" onClick={() => wallet.connect()}>connect publisher wallet</button> : null}
+            </div>
+          </section>
 
           <section className="incident-section">
             <div className="section-bar"><div><span className="eyebrow">incident history</span><h2>Claims against this warranty</h2></div><span>{incidents.length} total</span></div>
